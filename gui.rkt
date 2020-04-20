@@ -1,6 +1,14 @@
 #lang racket/gui
 
-(require pict)
+(require pict
+         "lang.rkt")
+
+#|TODO:
+  - draw spikes
+  - draw grid
+  IMPROVEMENTS:
+  - generate cell coordinates without hardcoding them in instructions
+|#
 
 (define (pict-color pict)
   ;; unreliable if pict doesn't use 'colorize'
@@ -37,6 +45,7 @@
     (inherit get-width get-height)
     (super-new)
     (init-field
+     [(internal-nodes nodes)]
      [grid-size 10])
     (define/public (get-grid-size) grid-size)
     (define/public (set-grid-size! n) (set! grid-size n))
@@ -44,7 +53,23 @@
     (define/public (grid-x->canvas-x n) (+ (/ (get-width) 2)
                                            (* (- n 1/2) (get-cell-size))))
     (define/public (grid-y->canvas-y n) (+ (/ (get-height) 2)
-                                           (- (* (+ n 1/2) (get-cell-size)))))))
+                                           (- (* (+ n 1/2) (get-cell-size)))))
+    (define/public (draw-cells dc)
+      (for-each
+       (λ (node)
+         (draw-pict
+          (add-cell-glyphs
+           (cell (get-cell-size) -1 1 -1 1)
+           (text
+            (node-glyph node)
+            (cons (make-object color% 255 255 255 1.0) "APL385 Unicode")
+            (ceiling (/ (get-cell-size) 3/2))
+            0))
+          dc
+          (grid-x->canvas-x (node-x node)) (grid-y->canvas-y (node-y node))))
+       internal-nodes))
+    (define/private (generate-spikes node)
+      #f)))
 
 ;; INSTANCES
 (define main-window
@@ -53,18 +78,9 @@
 (define apl2d-canvas
   (new fancy-canvas%
        [parent main-window]
+       [nodes test-program]
        [paint-callback (λ (canvas dc)
-                         (draw-pict
-                          (add-cell-glyphs
-                           (cell (send canvas get-cell-size) -1 1 0 0)
-                           (text
-                            "⍋"
-                            (cons (make-object color% 255 255 255 1.0) "APL385 Unicode")
-                            (ceiling (/ (send canvas get-cell-size) 2))
-                            0))
-                          dc
-                          (send canvas grid-x->canvas-x 0)
-                          (send canvas grid-y->canvas-y 0)))]))
+                         (send canvas draw-cells dc))]))
 
 (send* main-window
   (maximize #t)
